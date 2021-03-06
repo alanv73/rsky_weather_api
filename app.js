@@ -12,7 +12,7 @@ const DailySummary = require('./models/daily_summary');
 const WxMeasurement = require('./models/wxmeasr');
 const port = parseInt(process.env.PORT);
 
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true }));
 app.use(methodOverride('_method'));
 
 app.get('/', (req, res) => {
@@ -50,75 +50,7 @@ app.get('/weather', (req, res) => {
         res.status(200).send(jsonData);
     }).catch(err => {
         console.error('Error :\n', err.message);
-    });
-
-    // gets current observations
-    // sequelize.query(
-    //     `select *, (select sum(RAINFALL) from WEATHER_MEASUREMENT
-    //                     where date(CREATED) = date(wm.CREATED)) totalRain
-    //     from WEATHER_MEASUREMENT wm
-    //     order by wm.CREATED desc
-    //     limit 1`,
-    //     {
-    //         type: sequelize.QueryTypes.SELECT,
-    //         model: WxMeasurement,
-    //         mapToModel: true,
-    //         raw: true
-    //     }
-    // ).then(data => {
-    //     const currentDate = new Date(
-    //         new Date(
-    //             data[0].CREATED
-    //         ).toLocaleDateString()
-    //     );
-
-    //     jsonData = {
-    //         currently: data[0]
-    //     }
-
-    //     const criteria = {
-    //         where: sequelize.where(
-    //             sequelize.fn(
-    //                 'DATE', 
-    //                 sequelize.col('CREATED')
-    //             ), 
-    //             sequelize.fn(
-    //                 'DATE',
-    //                 currentDate.toISOString()
-    //             )
-    //         ),
-    //         type: sequelize.QueryTypes.SELECT,
-    //         mapToModel: true,
-    //         raw: true
-    //     }
-
-    //     // gets current day summary values
-    //     DailySummary.findOne(criteria).then(dailyData => {
-    //         jsonData = {
-    //             ...jsonData,
-    //             daily: dailyData
-    //         }
-
-    //         // gets current day summary for each hour of the day
-    //         HourlySummary.findAll(criteria).then(hourlyData => {
-    //             jsonData = {
-    //                 ...jsonData,
-    //                 hourly: hourlyData
-    //             }
-    //             res.status(200).send(jsonData);
-    //         }).catch(err => {
-    //             console.log(err);
-    //             res.status(500).send({});
-    //         });
-    //     }).catch(err => {
-    //         console.log(err);
-    //         res.status(500).send({});
-    //     });
-    // }).catch(err => {
-    //     console.log(err);
-    //     res.status(500).send({});
-    // });
-    
+    });   
 });
 
 // Movie route
