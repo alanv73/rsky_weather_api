@@ -105,5 +105,5 @@ app.get('/weather', (req, res) => {
 // listener
 const apiPort = port || 3000;
 app.listen(apiPort, (req, res) => {
-    console.log(`Listening on port ${apiPort}...`);
+    console.log(`Weather-API Listening on port ${apiPort}...`);
 });
