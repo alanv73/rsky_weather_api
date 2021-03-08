@@ -4,7 +4,8 @@ const sequelize = require('./sqlize');
 const WxMeasurement = sequelize.define('WEATHER_MEASUREMENT', {
     ID: {
         type: DataTypes.BIGINT(20),
-        allowNull: false
+        allowNull: false,
+        primaryKey: true
     },
     AMBIENT_TEMPERATURE: {
         type: DataTypes.DECIMAL(6, 2),
@@ -55,10 +56,13 @@ const WxMeasurement = sequelize.define('WEATHER_MEASUREMENT', {
         allowNull: false
     },
     CREATED: {
-        type: 'TIMESTAMP',
+        type: Sequelize.literal('CURRENT_TIMESTAMP'),
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
         allowNull: false
     }
+}, 
+{
+    timestamps: false
 });
 
 module.exports = WxMeasurement;

@@ -15,10 +15,22 @@ const port = parseInt(process.env.PORT);
 app.use(express.urlencoded({ extended: true }));
 app.use(methodOverride('_method'));
 
+app.use(function(req, res, next) {
+    console.log(req.headers);
+    res.header("Access-Control-Allow-Origin", "http://localhost:3000");
+    res.header(
+        "Access-Control-Allow-Headers", 
+        "Origin, X-Requested-With, Content-Type, Accept"
+    );
+    next();
+});
+
+// root route
 app.get('/', (req, res) => {
     res.redirect('/currently');
 });
 
+// returns current observations
 app.get('/currently', (req, res) => {
     const sql = `select AMBIENT_TEMPERATURE, GROUND_TEMPERATURE,
     AIR_QUALITY, AIR_PRESSURE, HUMIDITY, WIND_DIRECTION, WIND_SPEED,
@@ -30,7 +42,6 @@ app.get('/currently', (req, res) => {
     order by wm.CREATED desc
     limit 1`;
 
-    // returns current observations
     sequelize.query(sql,
         {
             type: sequelize.QueryTypes.SELECT,
@@ -52,7 +63,45 @@ app.get('/currently', (req, res) => {
 
 });
 
+// returns all records for a given date, defaults to current date
 app.get('/daily', (req, res) => {
+    let currentDate = new Date();
+    if(req.headers.date) {
+        currentDate = new Date(req.headers.date);
+    }
+
+    const criteria = {
+        where: sequelize.where(
+            sequelize.fn(
+                'DATE', 
+                sequelize.col('CREATED')
+            ), 
+            sequelize.fn(
+                'DATE',
+                currentDate.toISOString()
+            )
+        ),
+        type: sequelize.QueryTypes.SELECT,
+        mapToModel: true,
+        raw: true
+    }
+
+    WxMeasurement.findAll(criteria).then(data => {
+        const jsonData = {
+            length: data.length,
+            daily: data
+        }
+
+        res.status(200).send(jsonData);
+    }).catch(err => {
+        console.error('Error :\n', err.message);
+        res.status(500).send({error: err.message});
+    });
+});
+
+// returns a daily summary for header.days leading up to header.date
+// defaults to a single day and current date
+app.get('/dailysummary', (req, res) => {
     let currentDate = new Date();
     let numDays = 1;
 
@@ -68,8 +117,6 @@ app.get('/daily', (req, res) => {
         `${currentDate.getMonth() + 1}/` + 
         `${currentDate.getDate()}`;
 
-    // returns a daily summary for header.days leading up to header.date
-    // defaults to a single day and current date
     sequelize.query(`CALL DAILY_SUMMARY(:currentdate, :numdays); `, {
         replacements: {
             currentdate: sDate,
@@ -91,7 +138,9 @@ app.get('/daily', (req, res) => {
 
 });
 
-app.get('/hourly', (req, res) => {
+// returns summary for each hour of header.date
+// defaults to current date
+app.get('/hourlysummary', (req, res) => {
     let currentDate = new Date();
     if(req.headers.date) {
         currentDate = new Date(req.headers.date);
@@ -113,8 +162,6 @@ app.get('/hourly', (req, res) => {
         raw: true
     }
 
-    // returns summary for each hour of header.date
-    // defaults to current date
     HourlySummary.findAll(criteria).then(hourlyData => {
         jsonData = {
             hourly: hourlyData
