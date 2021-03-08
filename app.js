@@ -16,11 +16,124 @@ app.use(express.urlencoded({ extended: true }));
 app.use(methodOverride('_method'));
 
 app.get('/', (req, res) => {
-    res.redirect('/weather');
+    res.redirect('/currently');
+});
+
+app.get('/currently', (req, res) => {
+    const sql = `select AMBIENT_TEMPERATURE, GROUND_TEMPERATURE,
+    AIR_QUALITY, AIR_PRESSURE, HUMIDITY, WIND_DIRECTION, WIND_SPEED,
+    WIND_GUST_SPEED, WIND_CHILL, HEAT_IDX, DEW_PT, CPU_TEMP, CREATED, 
+    DATE(wm.CREATED) dateMeasured, 
+    (select sum(RAINFALL) from WEATHER_MEASUREMENT
+        where date(CREATED) = date(wm.CREATED)) totalRain
+    from WEATHER_MEASUREMENT wm
+    order by wm.CREATED desc
+    limit 1`;
+
+    // gets current observations
+    sequelize.query(sql,
+        {
+            type: sequelize.QueryTypes.SELECT,
+            model: WxMeasurement,
+            mapToModel: true,
+            raw: true
+        }
+    ).then(data => {
+
+        jsonData = {
+            currently: data[0]
+        }
+
+        res.status(200).send(jsonData);
+
+    }).catch(err => {
+        res.status(500).send({error: err.message});
+    });
+
+});
+
+app.get('/daily', (req, res) => {
+    console.log(req.headers);
+    let currentDate = new Date();
+    let numDays = 1;
+
+    if(req.headers.date) {
+        console.log('got a date');
+        currentDate = new Date(req.headers.date);
+    }
+
+    if(req.headers.days) {
+        console.log('got numDays');
+        numDays = parseInt(req.headers.days);
+    }
+    
+    const sDate = `${currentDate.getFullYear()}/` + 
+        `${currentDate.getMonth() + 1}/` + 
+        `${currentDate.getDate()}`;
+    console.log(currentDate.toDateString());
+
+    sequelize.query(`CALL DAILY_SUMMARY(:currentdate, :numdays); `, {
+        replacements: {
+            currentdate: sDate,
+            numdays: numDays
+        },
+        type: sequelize.QueryTypes.RAW,
+    }).then(data => {
+        
+        const jsonData = {
+            length: data.length,
+            daily: data
+        }
+
+        res.status(200).send(jsonData);
+    }).catch(err => {
+        console.error('Error :\n', err.message);
+        res.status(500).send({error: err.message});
+    });   
+
+});
+
+app.get('/hourly', (req, res) => {
+    console.log(req.headers);
+    let currentDate;
+    if(req.headers.date) {
+        console.log('got date');
+        currentDate = new Date(req.headers.date);
+        console.log(currentDate);
+    } else {
+        console.log('new date');
+        currentDate = new Date();
+    }
+    
+    const criteria = {
+        where: sequelize.where(
+            sequelize.fn(
+                'DATE', 
+                sequelize.col('CREATED')
+            ), 
+            sequelize.fn(
+                'DATE',
+                currentDate.toISOString()
+            )
+        ),
+        type: sequelize.QueryTypes.SELECT,
+        mapToModel: true,
+        raw: true
+    }
+
+    // gets current day summary for each hour of the day
+    HourlySummary.findAll(criteria).then(hourlyData => {
+        jsonData = {
+            hourly: hourlyData
+        }
+        res.status(200).send(jsonData);
+    }).catch(err => {
+        res.status(500).send({error: err.message});
+    });
 });
 
 // current weather conditions route
-app.get('/weather', (req, res) => {
+app.get('/weathersummary', (req, res) => {
     let jsonData;
     const endDate = new Date();
     const numDays = 1;  
@@ -50,6 +163,7 @@ app.get('/weather', (req, res) => {
         res.status(200).send(jsonData);
     }).catch(err => {
         console.error('Error :\n', err.message);
+        res.status(500).send({error: err.message});
     });   
 });
 
