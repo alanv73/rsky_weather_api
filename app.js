@@ -30,7 +30,7 @@ app.get('/currently', (req, res) => {
     order by wm.CREATED desc
     limit 1`;
 
-    // gets current observations
+    // returns current observations
     sequelize.query(sql,
         {
             type: sequelize.QueryTypes.SELECT,
@@ -53,25 +53,23 @@ app.get('/currently', (req, res) => {
 });
 
 app.get('/daily', (req, res) => {
-    console.log(req.headers);
     let currentDate = new Date();
     let numDays = 1;
 
     if(req.headers.date) {
-        console.log('got a date');
         currentDate = new Date(req.headers.date);
     }
 
     if(req.headers.days) {
-        console.log('got numDays');
         numDays = parseInt(req.headers.days);
     }
     
     const sDate = `${currentDate.getFullYear()}/` + 
         `${currentDate.getMonth() + 1}/` + 
         `${currentDate.getDate()}`;
-    console.log(currentDate.toDateString());
 
+    // returns a daily summary for header.days leading up to header.date
+    // defaults to a single day and current date
     sequelize.query(`CALL DAILY_SUMMARY(:currentdate, :numdays); `, {
         replacements: {
             currentdate: sDate,
@@ -94,15 +92,9 @@ app.get('/daily', (req, res) => {
 });
 
 app.get('/hourly', (req, res) => {
-    console.log(req.headers);
-    let currentDate;
+    let currentDate = new Date();
     if(req.headers.date) {
-        console.log('got date');
         currentDate = new Date(req.headers.date);
-        console.log(currentDate);
-    } else {
-        console.log('new date');
-        currentDate = new Date();
     }
     
     const criteria = {
@@ -121,7 +113,8 @@ app.get('/hourly', (req, res) => {
         raw: true
     }
 
-    // gets current day summary for each hour of the day
+    // returns summary for each hour of header.date
+    // defaults to current date
     HourlySummary.findAll(criteria).then(hourlyData => {
         jsonData = {
             hourly: hourlyData
