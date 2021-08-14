@@ -16,11 +16,27 @@ app.use(express.urlencoded({ extended: true }));
 app.use(methodOverride('_method'));
 
 app.use(function(req, res, next) {
-    console.log(req.headers);
-    res.header("Access-Control-Allow-Origin", "http://localhost:3000");
+    const allowedOrigins = [
+        "http://localhost:3000",
+        "http://192.168.1.107:3000",
+        "http://127.0.0.1:5500",
+        "http://localhost:5500",
+        "http://localhost:5000",
+        "http://localhost:5000",
+        "http://192.168.1.103:5000",
+        "http://192.168.1.103",
+        "http://raspberrysky.hopto.org",
+    ];
+
+    const origin = req.headers.origin;
+
+    if(allowedOrigins.includes(origin)){
+        res.header("Access-Control-Allow-Origin", origin);
+    }
+
     res.header(
         "Access-Control-Allow-Headers", 
-        "Origin, X-Requested-With, Content-Type, Accept"
+        "Origin, X-Requested-With, Content-Type, Accept, reqdate, days"
     );
     next();
 });
@@ -35,9 +51,9 @@ app.get('/currently', (req, res) => {
     const sql = `select AMBIENT_TEMPERATURE, GROUND_TEMPERATURE,
     AIR_QUALITY, AIR_PRESSURE, HUMIDITY, WIND_DIRECTION, WIND_SPEED,
     WIND_GUST_SPEED, WIND_CHILL, HEAT_IDX, DEW_PT, CPU_TEMP, CREATED, 
-    DATE(wm.CREATED) dateMeasured, 
+    DATE(wm.CREATED) DATE_MEASURED, 
     (select sum(RAINFALL) from WEATHER_MEASUREMENT
-        where date(CREATED) = date(wm.CREATED)) totalRain
+        where date(CREATED) = date(wm.CREATED)) TOTAL_RAIN
     from WEATHER_MEASUREMENT wm
     order by wm.CREATED desc
     limit 1`;
@@ -66,9 +82,13 @@ app.get('/currently', (req, res) => {
 // returns all records for a given date, defaults to current date
 app.get('/daily', (req, res) => {
     let currentDate = new Date();
-    if(req.headers.date) {
-        currentDate = new Date(req.headers.date);
+    if(req.headers.reqdate) {
+        currentDate = new Date(req.headers.reqdate);
     }
+
+    const sDate = `${currentDate.getFullYear()}/` + 
+        `${currentDate.getMonth() + 1}/` + 
+        `${currentDate.getDate()}`;
 
     const criteria = {
         where: sequelize.where(
@@ -78,7 +98,7 @@ app.get('/daily', (req, res) => {
             ), 
             sequelize.fn(
                 'DATE',
-                currentDate.toISOString()
+                sDate
             )
         ),
         type: sequelize.QueryTypes.SELECT,
@@ -89,6 +109,7 @@ app.get('/daily', (req, res) => {
     WxMeasurement.findAll(criteria).then(data => {
         const jsonData = {
             length: data.length,
+            date: currentDate.toISOString(),
             daily: data
         }
 
@@ -105,8 +126,8 @@ app.get('/dailysummary', (req, res) => {
     let currentDate = new Date();
     let numDays = 1;
 
-    if(req.headers.date) {
-        currentDate = new Date(req.headers.date);
+    if(req.headers.reqdate) {
+        currentDate = new Date(req.headers.reqdate);
     }
 
     if(req.headers.days) {
@@ -126,8 +147,10 @@ app.get('/dailysummary', (req, res) => {
     }).then(data => {
         
         const jsonData = {
+            reqdate: req.headers.reqdate,
+            days: req.headers.days,
             length: data.length,
-            daily: data
+            daily_summary: data
         }
 
         res.status(200).send(jsonData);
@@ -142,8 +165,8 @@ app.get('/dailysummary', (req, res) => {
 // defaults to current date
 app.get('/hourlysummary', (req, res) => {
     let currentDate = new Date();
-    if(req.headers.date) {
-        currentDate = new Date(req.headers.date);
+    if(req.headers.reqdate) {
+        currentDate = new Date(req.headers.reqdate);
     }
     
     const criteria = {
@@ -164,7 +187,7 @@ app.get('/hourlysummary', (req, res) => {
 
     HourlySummary.findAll(criteria).then(hourlyData => {
         jsonData = {
-            hourly: hourlyData
+            hourly_summary: hourlyData
         }
         res.status(200).send(jsonData);
     }).catch(err => {
